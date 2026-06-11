@@ -1,0 +1,124 @@
+﻿@page "/subsubject/{id:int}"
+@rendermode InteractiveServer
+@using Snackis.Domain.DTO;
+@using Snackis.Application.BlazorInterfaces;
+@using Snackis.Presentation.Components.SiteComponents
+
+@inject NavigationManager NavigationManager
+@inject IPostService postService;
+@inject ISubjectService subjectService;
+
+<a class="d-block w-100 px-3 py-2 text-decoration-none" href="/">
+    ←Gå tillbaka
+</a>
+
+@if (subSubject == null)
+{
+    <p>Laddar...</p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center">
+        <h3>@subSubject.Name</h3>
+
+        <AuthorizeView>
+            <Authorized>
+                <a class="btn btn-success btn-sm"
+                   href="/subsubject/@id/create-post">
+                    + Skapa inlägg
+                </a>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+}
+
+@if (posts == null)
+{
+    <p>Laddar posts...</p>
+}
+else
+{
+    <PostListComponent Posts="posts" />
+}
+
+@if (posts != null && !(posts.Count < pageSize && IsFirstPage))
+{
+    <div class="d-flex justify-content-center align-items-center mt-4 gap-2">
+
+        <button class="btn btn-outline-primary"
+                @onclick="PrevPage"
+                disabled="@IsFirstPage">
+            ←
+        </button>
+
+        <span class="mx-2">
+            Page @currentPage
+        </span>
+
+        <button class="btn btn-outline-primary"
+                @onclick="NextPage"
+                disabled="@IsLastPage">
+            →
+        </button>
+
+    </div>
+}
+<AuthorizeView>
+    <Authorized>
+        <ChatComponent />
+    </Authorized>
+</AuthorizeView>
+
+
+@code {
+    [Parameter]
+    public int id { get; set; }
+
+    [SupplyParameterFromQuery]
+    [Parameter]
+    public int? pageSide { get; set; }
+
+
+    private List<PostDto>? posts;
+    private SubSubjectDto? subSubject;
+
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int start = 0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        currentPage = pageSide == null ? 1 : (int)pageSide;
+        await LoadSubSubjectAsync();
+        await LoadPostsAsync();
+    }
+
+    private async Task LoadSubSubjectAsync()
+    {
+        subSubject = await subjectService.GetSubSubjectByIdAsync(id);
+    }
+
+    private async Task LoadPostsAsync()
+    {
+        posts = null;
+        start = (currentPage - 1) * pageSize;
+
+        posts = await postService.GetPostsAsync(id, start, pageSize);
+    }
+
+    private async Task NextPage()
+    {
+        NavigationManager.NavigateTo($"/subsubject/{id}?pageSide={currentPage + 1}");
+    }
+
+    private async Task PrevPage()
+    {
+
+        if (currentPage > 1)
+        {
+            NavigationManager.NavigateTo($"/subsubject/{id}?pageSide={currentPage - 1}");
+        }
+    }
+    private bool IsLastPage => posts == null || posts.Count < pageSize;
+    private bool IsFirstPage => currentPage == 1;
+}

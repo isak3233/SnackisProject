@@ -1,0 +1,248 @@
+﻿@using Snackis.Domain.DTO
+@using Snackis.Application.BlazorInterfaces
+@inject IMessageService messageService
+@inject IUserService userService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="chat-box shadow">
+
+    <div class="chat-header d-flex justify-content-between align-items-center">
+        <span>Chattar</span>
+
+        <button class="btn btn-sm btn-light"
+                @onclick="ToggleCollapse">
+            @(isCollapsed ? "▲" : "▼")
+        </button>
+    </div>
+
+    @if (!isCollapsed)
+    {
+        <div class="chat-body">
+
+            @if (selectedContactId == null)
+            {
+                @if (contacts == null || !contacts.Any())
+                {
+                    <div class="d-flex gap-2 p-2 border-bottom mb-2">
+
+                        <input class="form-control form-control-sm"
+                               placeholder="Skriv e-post..."
+                               @bind="newEmail"
+                               @bind:event="oninput" />
+
+                        <button class="btn btn-sm btn-primary"
+                                @onclick="StartNewChat"
+                                disabled="@string.IsNullOrWhiteSpace(newEmail)">
+                            Ny
+                        </button>
+                    </div>
+                    <p class="text-muted p-2 m-0">Inga konversationer</p>
+
+                }
+                else
+                {
+                    
+
+                    @foreach (var contact in contacts)
+                    {
+                        <div class="contact-row"
+                             style="cursor:pointer"
+                             @onclick="() => OpenChat(contact)">
+
+                            <AvatarComponent AvatarUrl="@contact.AvatarUrl" />
+
+                            <div class="flex-grow-1 overflow-hidden">
+
+                                <div class="fw-bold">
+                                    @contact.DisplayName
+                                </div>
+
+                                <div class="text-muted small text-truncate">
+                                    @contact.TextContent
+                                </div>
+
+                            </div>
+
+                        </div>
+                    }
+                }
+            }
+            else
+            {
+
+                <div class="d-flex flex-column" style="height: 380px;">
+
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <button class="btn btn-sm btn-outline-secondary"
+                                @onclick="BackToContacts">
+                            ← Tillbaka
+                        </button>
+
+                        <strong class="me-2">@activeContactName</strong>
+                    </div>
+
+                    <div class="chat-messages border rounded p-2 flex-grow-1"
+                         style="overflow-y:auto;">
+
+                        @if (messages != null)
+                        {
+                            @foreach (var msg in messages)
+                            {
+                                var isMe = msg.SenderId == userId;
+
+                                <div class="d-flex mb-2"
+                                     style="justify-content:@(isMe ? "flex-end" : "flex-start");">
+
+                                    <div class="p-2 rounded"
+                                         style="
+                                        max-width:70%;
+                                        background-color:@(isMe ? "#d1e7dd" : "#f1f1f1");
+                                        ">
+                                        @msg.TextContent
+
+                                        <div class="small text-muted">
+                                            @FormatMessageTime(msg.SentAt)
+                                        </div>
+                                    </div>
+
+                                </div>
+                            }
+                        }
+
+                    </div>
+
+
+                    <div class="d-flex gap-2 mt-2">
+
+                        <input class="form-control"
+                               placeholder="Skriv ett meddelande..."
+                               @bind="newMessageText"
+                               @bind:event="oninput"
+                               @onkeydown="HandleKeyDown" />
+
+                        <button class="btn btn-primary"
+                                @onclick="SendMessageAsync"
+                                disabled="@string.IsNullOrWhiteSpace(newMessageText)">
+                            Skicka
+                        </button>
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+    }
+
+</div>
+
+@code {
+    private List<ContactDto>? contacts;
+    private List<MessageDto>? messages;
+
+    private bool isCollapsed = true;
+
+    private string? userId;
+
+    private string? selectedContactId;
+    private string? activeContactName;
+
+    private string newMessageText = "";
+    private string newEmail = "";
+
+    private void ToggleCollapse()
+    {
+        isCollapsed = !isCollapsed;
+    }
+
+    private async Task OpenChat(ContactDto contact)
+    {
+
+
+        if (userId != null)
+        {
+            try 
+            {
+                messages = await messageService.GetMessagesAsync(userId, contact.UserId, 0, 50);
+                selectedContactId = contact.UserId;
+                activeContactName = contact.DisplayName;
+            } catch (Exception ex)
+            {
+                
+            }
+
+        }
+    }
+    private async Task StartNewChat()
+    {
+        if (string.IsNullOrWhiteSpace(newEmail) || userId == null) return;
+
+        var contact = await userService.GetContactFromEmailAsync(newEmail);
+
+
+
+        if (contact == null)
+        {
+            return;
+        }
+
+        await OpenChat(contact);
+
+        newEmail = "";
+    }
+    private async Task SendMessageAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newMessageText) || selectedContactId == null) return;
+
+        await messageService.CreateMessageAsync(userId, selectedContactId, newMessageText);
+
+        newMessageText = "";
+
+        messages = await messageService.GetMessagesAsync(userId, selectedContactId, 0, 50);
+
+        contacts = await messageService.GetLatestContactsAsync(userId, 0, 20);
+        StateHasChanged();
+    }
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SendMessageAsync();
+        }
+    }
+    private string FormatMessageTime(DateTime sentAt)
+    {
+        var now = DateTime.Now;
+
+        if (sentAt.Date == now.Date)
+            return sentAt.ToString("HH:mm");
+
+        if (sentAt.Date == now.AddDays(-1).Date)
+            return $"Igår {sentAt:HH:mm}";
+
+        if (sentAt > now.AddDays(-7))
+            return sentAt.ToString("dddd HH:mm"); // t.ex "måndag 14:32"
+
+        return sentAt.ToString("yyyy-MM-dd HH:mm");
+    }
+
+    private void BackToContacts()
+    {
+        selectedContactId = null;
+        messages = null;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        if (!authState.User.Identity?.IsAuthenticated ?? true)return;
+
+        userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId == null)return;
+
+        contacts = await messageService.GetLatestContactsAsync(userId, 0, 20);
+    }
+}

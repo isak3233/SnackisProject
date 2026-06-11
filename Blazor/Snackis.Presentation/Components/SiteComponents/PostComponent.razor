@@ -1,0 +1,58 @@
+﻿
+@using Snackis.Domain.DTO
+@using Snackis.Application.BlazorInterfaces
+@using Snackis.Presentation.Components.SiteComponents
+
+
+
+
+
+    <div class="card shadow-sm">
+
+        <div class="card-body">
+
+        <div class="d-flex align-items-start justify-content-between">
+
+            <h3 class="card-title mb-2">
+                @post.Header
+            </h3>
+
+            <div class="ms-auto">
+                <CreateReportComponent postId="post.Id"/>
+            </div>
+
+        </div>
+
+            <div class="d-flex align-items-center mb-3 text-muted small">
+
+                <AvatarComponent AvatarUrl="@post.AvatarUrl" />
+
+                <div>
+                    <div class="fw-bold">@post.DisplayName</div>
+                    <div>@post.CreatedAt</div>
+                </div>
+
+            </div>
+
+            <hr />
+
+            
+            @if(post.IsTextDeleted == true)
+            {
+                <p class="fs-5 text-danger" style="white-space: pre-wrap;">@post.TextContent</p>
+            } else
+            {
+                <p class="fs-5" style="white-space: pre-wrap;">@post.TextContent</p>
+            }
+            
+
+
+        </div>
+    </div>
+
+
+@code {
+    [Parameter]
+    [EditorRequired]
+    public PostDto post { get; set; }
+}

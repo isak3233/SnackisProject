@@ -1,0 +1,45 @@
+﻿@using Snackis.Domain.DTO
+
+
+<div>
+    @if(Posts == null)
+    {
+        <p>Laddar...</p>
+    }
+    else if (Posts.Count == 0)
+    {
+        <p>Finns inga inlägg här</p>
+    }
+    else
+    {
+        <div class="list-group">
+            @foreach (var post in Posts)
+            {
+                <a href="/post/@post.Id" class="text-decoration-none text-dark p-2">
+                    <div class="list-group-item d-flex align-items-center border-bottom border-2">
+
+                        <div class="d-flex flex-column align-items-center">
+                            <AvatarComponent AvatarUrl="@post.AvatarUrl" />
+
+                            <p class="m-0 p-1 fw-bold text-center" style="min-width: 100px;">
+                                @post.DisplayName
+                            </p>
+                        </div>
+
+                        <h4 class="ms-4 mt-3">@post.Header</h4>
+
+                        <div class="ms-auto">
+                            <p class="m-0">@post.CreatedAt</p>
+                        </div>
+
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</div>
+@code {
+
+    [Parameter]
+    public List<PostDto>? Posts { get; set; }
+}

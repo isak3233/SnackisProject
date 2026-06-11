@@ -1,0 +1,132 @@
+﻿@page "/post/{postId:int}"
+@rendermode InteractiveServer
+@using Snackis.Domain.DTO
+@using Snackis.Application.BlazorInterfaces
+@using Snackis.Presentation.Components.SiteComponents
+
+
+@inject IPostService postService
+
+<a class="text-decoration-none d-block mb-3" href="javascript:history.back()">
+    ← Gå tillbaka
+</a>
+@if (post == null)
+{
+    if(errorMessage == null)
+    {
+        <p>Laddar...</p>
+    } else
+    {
+        <p>@errorMessage</p>
+    }
+
+}
+else
+{
+    <PostComponent post="post" />
+
+    <CreatePostCommentComponent PostId="postId" OnCommentCreated="LoadPostCommentsAsync" />
+    <hr />
+
+    <h5>Kommentarer</h5>
+
+    @if (postComments == null)
+    {
+        <p>Laddar kommentarer...</p>
+    }
+    else if (!postComments.Any())
+    {
+        <p>Inga kommentarer ännu</p>
+    }
+    else
+    {
+        <PostCommentListComponent Comments="postComments" />
+    }
+
+    @if (postComments != null && !(postComments.Count < count && IsFirstPage))
+    {
+        <div class="d-flex justify-content-center align-items-center mt-4 gap-2">
+
+            <button class="btn btn-outline-primary"
+                    @onclick="PrevPage"
+                    disabled="@IsFirstPage">
+                ←
+            </button>
+
+            <span class="mx-2">
+                Page @pageSide
+            </span>
+
+            <button class="btn btn-outline-primary"
+                    @onclick="NextPage"
+                    disabled="@IsLastPage">
+                →
+            </button>
+
+        </div>
+    }
+    
+}
+<AuthorizeView>
+    <Authorized>
+        <ChatComponent />
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [Parameter]
+    public int postId { get; set; }
+
+    private PostDto? post;
+    private List<PostCommentDto>? postComments;
+
+    private int pageSide = 1;
+    private int count = 10;
+
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPostAsync();
+        await LoadPostCommentsAsync();
+    }
+
+    private async Task LoadPostAsync()
+    {
+        try
+        {
+            post = await postService.GetPostAsync(postId);
+            errorMessage = "";
+        } catch (Exception e)
+        {
+            errorMessage = "Inlägg finns inte";
+        }
+
+    }
+
+    private async Task LoadPostCommentsAsync()
+    {
+        postComments = null;
+        int start = (pageSide - 1) * count;
+
+        postComments = await postService.GetPostCommentsAsync(postId, start, count);
+    }
+
+    private async Task NextPage()
+    {
+        pageSide++;
+        await LoadPostCommentsAsync();
+    }
+
+    private async Task PrevPage()
+    {
+        if (pageSide > 1)
+        {
+            pageSide--;
+            await LoadPostCommentsAsync();
+        }
+    }
+
+    private bool IsFirstPage => pageSide == 1;
+    private bool IsLastPage => postComments == null || postComments.Count < count;
+}

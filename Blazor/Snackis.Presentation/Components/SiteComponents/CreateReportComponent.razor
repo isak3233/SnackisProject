@@ -1,0 +1,73 @@
+﻿@using Snackis.Application.BlazorInterfaces
+@inject IPostService postService
+
+<button class="btn btn-danger btn-sm"
+        @onclick="Open">
+    Rapportera
+</button>
+
+@if (isOpen)
+{
+    <div class="report-overlay">
+        <div class="report-modal p-3 bg-white rounded shadow">
+
+            <h5>Rapportera innehåll</h5>
+
+            <textarea class="form-control mb-2"
+                      rows="4"
+                      @bind="text"
+                      placeholder="Skriv varför du rapporterar...">
+            </textarea>
+
+            <div class="d-flex justify-content-end gap-2">
+
+                <button class="btn btn-secondary btn-sm"
+                        @onclick="Close">
+                    Avbryt
+                </button>
+
+                <button class="btn btn-danger btn-sm"
+                        @onclick="Submit"
+                        disabled="@string.IsNullOrWhiteSpace(text)">
+                    Skicka
+                </button>
+
+            </div>
+            @if (successText != null)
+            {
+                <div class="alert alert-success mt-2">
+                    @successText
+                </div>
+
+            }
+
+
+        </div>
+    </div>
+}
+@code {
+    [Parameter] public int? postId { get; set; }
+    [Parameter] public int? postCommentId { get; set; }
+
+    private string? successText;
+    private bool isOpen = false;
+    private string? text = null;
+
+    private void Open() => isOpen = true;
+    private void Close()
+    {
+        isOpen = false;
+        text = null;
+        successText = null;
+    }
+
+    private async Task Submit()
+    {
+        await postService.CreateReportAsync(postId, postCommentId, text);
+
+        successText = "Lyckades skicka rapporten";
+        StateHasChanged();
+        await Task.Delay(2000);
+        Close();
+    }
+}

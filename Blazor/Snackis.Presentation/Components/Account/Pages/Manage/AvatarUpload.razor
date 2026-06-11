@@ -1,0 +1,82 @@
+﻿@page "/Account/Manage/AvatarUpload"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Identity
+@using Snackis.Domain.Entities
+@using Snackis.Application.BlazorInterfaces
+
+@inject UserManager<SnackisUser> UserManager
+@inject SignInManager<SnackisUser> SignInManager
+@inject IdentityRedirectManager RedirectManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject IUserService userService
+
+<PageTitle>Profile</PageTitle>
+
+<h3>Profile</h3>
+
+<div class="row">
+    <div class="col-xl-6">
+        <InputFile OnChange="OnFileSelected" accept="image/*" />
+
+        <button class="btn btn-primary" @onclick="Upload">
+            Ladda upp
+        </button>
+    </div>
+    <p>Nurvarande profil bild</p>
+    <img style="width:100px; height:100px; padding:0;" src="@avatarUrl" />
+    <p>@errorMessage</p>
+</div>
+
+@code {
+    private SnackisUser? user;
+
+    private IBrowserFile? uploadedImage;
+    private string? avatarUrl;
+    private string? errorMessage;
+
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        uploadedImage = e.File;
+
+    }
+    private async Task Upload()
+    {
+        if (uploadedImage != null)
+        {
+            try
+            {
+                await userService.UploadAvatarAsync(uploadedImage, user.Id);
+                NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+            } catch(Exception ex)
+            {
+                errorMessage = "Lyckades inte ladda upp bilden. Error meddelande: " + ex.Message;
+            }
+
+        
+        }
+        
+    }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+
+        if (user is null)
+        {
+            return;
+        }
+        avatarUrl = await userService.GetUserAvatarAsync(user.Id);
+        this.user = user;
+    }
+    
+
+
+
+
+}
+

@@ -1,0 +1,30 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using Snackis.Domain.DTO;
+@using Snackis.Application.BlazorInterfaces;
+@using Snackis.Presentation.Components.SiteComponents
+@inject ISubjectService subjectService
+
+<PageTitle>Hem</PageTitle>
+
+<h1>Välkommen till Snackis!</h1>
+
+<p>Här kan du hitta flera ämnen du och andra kan prata om</p>
+
+<SubjectListComponent Subjects="subjects" />
+<AuthorizeView>
+    <Authorized>
+        <ChatComponent />
+    </Authorized>
+</AuthorizeView>
+
+            
+
+@code {
+    private List<SubjectDto>? subjects;
+
+    protected override async Task OnInitializedAsync()
+    {
+        subjects = await subjectService.GetSubjectsAsync();
+    }
+}

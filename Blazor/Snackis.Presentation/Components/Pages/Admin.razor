@@ -1,0 +1,292 @@
+﻿@page "/Admin"
+@rendermode InteractiveServer
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Snackis.Domain.DTO
+@using Snackis.Application.BlazorInterfaces
+@using Snackis.Presentation.Components.SiteComponents
+
+@attribute [Authorize(Roles = "Admin")]
+
+@inject IAdminService AdminService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Admin</PageTitle>
+
+<h1>Adminpanel</h1>
+
+@if (loading)
+{
+    <p>Laddar...</p>
+}
+else
+{
+    <div class="row">
+
+        <div class="col-md-6">
+
+            <h3>Subjects</h3>
+
+            <div class="card mb-3">
+                <div class="card-body">
+
+                    <h5>Nytt Subject</h5>
+
+                    <InputText class="form-control mb-2"
+                               @bind-Value="newSubjectName" />
+
+                    <button class="btn btn-primary"
+                            @onclick="CreateSubject">
+                        Lägg till
+                    </button>
+
+                </div>
+            </div>
+
+            @foreach (var subject in subjects)
+            {
+                <div class="card mb-3">
+                    <div class="card-body">
+
+                        <h5>Subject</h5>
+
+                        <InputText class="form-control"
+                                   @bind-Value="subject.Name" />
+
+                        <button class="btn btn-success mt-2"
+                                @onclick="() => SaveSubject(subject)">
+                            Spara
+                        </button>
+
+                        <hr />
+
+                        <h6>SubSubjects</h6>
+
+                        @foreach (var sub in subject.SubSubjects)
+                        {
+                            <div class="mb-2">
+
+                                <InputText class="form-control"
+                                           @bind-Value="sub.Name" />
+
+                                <button class="btn btn-secondary mt-1"
+                                        @onclick="() => SaveSubSubject(sub)">
+                                    Spara
+                                </button>
+
+                            </div>
+                        }
+
+                        <hr />
+
+                        <input class="form-control"
+                               value="@GetNewSubSubject(subject.Id)"
+                               @oninput="e => SetNewSubSubject(subject.Id, e.Value?.ToString())" />
+
+                        <button class="btn btn-primary mt-2"
+                                @onclick="() => CreateSubSubject(subject.Id)">
+                            Lägg till SubSubject
+                        </button>
+
+                    </div>
+                </div>
+            }
+
+        </div>
+
+        <div class="col-md-6">
+
+            <h3>Rapporter</h3>
+
+            @if (!reports.Any())
+            {
+                <p>Inga öppna rapporter.</p>
+            }
+
+            @foreach (var report in reports.Where(x => !x.Solved))
+            {
+                <div class="card mb-3">
+
+                    <div class="card-body">
+
+                        <div class="d-flex align-items-center mb-2">
+
+                            @if (!string.IsNullOrWhiteSpace(report.ReportedUserAvatarUrl))
+                            {
+                                <AvatarComponent AvatarUrl="@report.ReportedUserAvatarUrl" />
+                            }
+
+                            <strong>
+                                @report.ReportedUserDisplayName
+                            </strong>
+
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(report.ReportedHeader))
+                        {
+                            <h5>@report.ReportedHeader</h5>
+                        }
+
+                        <p>@report.ReportedText</p>
+
+                        @if (!string.IsNullOrWhiteSpace(report.Comment))
+                        {
+                            <div class="alert alert-warning">
+                                @report.Comment
+                            </div>
+                        }
+
+                        <div class="d-flex gap-2">
+
+                            <button class="btn btn-success"
+                                    @onclick="() => SolveReport(report.ReportId)">
+                                Markera löst
+                            </button>
+
+                            @if (report.PostId.HasValue)
+                            {
+                                <button class="btn btn-danger"
+                                        @onclick="() => RemovePost(report.PostId.Value)">
+                                    Ta bort post
+                                </button>
+
+                                <button class="btn btn-warning"
+                                        @onclick="() => RemovePostText(report.PostId.Value)">
+                                    Rensa text
+                                </button>
+                            }
+
+                            @if (report.PostCommentId.HasValue)
+                            {
+                                <button class="btn btn-danger"
+                                        @onclick="() => DeleteComment(report.PostCommentId.Value)">
+                                    Ta bort kommentar
+                                </button>
+                            }
+
+                        </div>
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+
+    </div>
+}
+@code {
+
+    private string userId = "";
+    private bool loading = true;
+
+    private string newSubjectName = "";
+
+    private List<SubjectDto> subjects = new();
+    private List<ReportDto> reports = new();
+
+
+    private Dictionary<int, string> newSubSubjects = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
+
+        await LoadData();
+
+        loading = false;
+    }
+
+    private async Task LoadData()
+    {
+        subjects = await AdminService.GetSubjectsAsync() ?? new List<SubjectDto>();
+
+        reports = await AdminService.GetReportsAsync(userId) ?? new List<ReportDto>();
+
+        foreach (var subject in subjects)
+        {
+            if (!newSubSubjects.ContainsKey(subject.Id))
+            {
+                newSubSubjects[subject.Id] = "";
+            }
+
+        }
+    }
+
+
+    private string GetNewSubSubject(int subjectId)
+    {
+        if (!newSubSubjects.ContainsKey(subjectId))
+        {
+            newSubSubjects[subjectId] = "";
+        }
+        
+
+        return newSubSubjects[subjectId];
+    }
+
+    private void SetNewSubSubject(int subjectId, string? value)
+    {
+        newSubSubjects[subjectId] = value ?? "";
+    }
+
+    private async Task CreateSubject()
+    {
+        if (string.IsNullOrWhiteSpace(newSubjectName)) return;
+
+        await AdminService.CreateSubjectAsync(newSubjectName, userId);
+
+        newSubjectName = "";
+        await LoadData();
+    }
+
+    private async Task SaveSubject(SubjectDto subject)
+    {
+        await AdminService.UpdateSubjectAsync(subject.Id, subject.Name, userId);
+        await LoadData();
+    }
+
+    private async Task CreateSubSubject(int subjectId)
+    {
+        var name = GetNewSubSubject(subjectId);
+
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        await AdminService.CreateSubSubjectAsync(subjectId, name, userId);
+
+        SetNewSubSubject(subjectId, "");
+        await LoadData();
+    }
+
+    private async Task SaveSubSubject(SubSubjectDto sub)
+    {
+        await AdminService.UpdateSubSubjectAsync(sub.Id, sub.Name, userId);
+        await LoadData();
+    }
+
+    private async Task SolveReport(int reportId)
+    {
+        await AdminService.SolveReportAsync(reportId, userId);
+        await LoadData();
+    }
+
+    private async Task RemovePost(int postId)
+    {
+        await AdminService.DeletePostAsync(postId, true, false, userId);
+        await LoadData();
+    }
+
+    private async Task RemovePostText(int postId)
+    {
+        await AdminService.DeletePostAsync(postId, false, true, userId);
+        await LoadData();
+    }
+
+    private async Task DeleteComment(int commentId)
+    {
+        await AdminService.DeleteCommentAsync(commentId, userId);
+        await LoadData();
+    }
+}

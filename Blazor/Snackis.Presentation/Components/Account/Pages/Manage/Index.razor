@@ -1,0 +1,109 @@
+﻿@page "/Account/Manage"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using Snackis.Domain.Entities
+
+@inject UserManager<SnackisUser> UserManager
+@inject SignInManager<SnackisUser> SignInManager
+@inject IdentityRedirectManager RedirectManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Profil</PageTitle>
+
+<h3>Profil</h3>
+
+<div class="row">
+    <div class="col-xl-6">
+        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.DisplayName"
+                           @bind:event="oninput"
+                           id="Input.DisplayName"
+                           class="form-control"
+                           placeholder="Enter your display name" />
+                <label for="Input.DisplayName" class="form-label">Visningsnamn</label>
+                <ValidationMessage For="() => Input.DisplayName" class="text-danger" />
+            </div>
+            <button type="submit" class="w-100 btn btn-lg btn-primary">Spara</button>
+            @if (!string.IsNullOrWhiteSpace(resultMessage))
+            {
+                <p class="alert alert-success small mt-3">@resultMessage</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <p class="alert alert-danger small mt-3">@errorMessage</p>
+            }
+        </EditForm>
+        
+
+
+    </div>
+</div>
+
+@code {
+    private SnackisUser? user;
+    private string? displayName;
+    private string? resultMessage;
+    private string? errorMessage;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private InputModel Input { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userPrincipal = authState.User;
+
+        user = await UserManager.GetUserAsync(userPrincipal);
+
+        if (user is null)
+        {
+            errorMessage = "Inte inloggad";
+            return;
+        }
+
+        Input.DisplayName = user.DisplayName ?? "";
+    }
+
+    private async Task OnValidSubmitAsync()
+    {
+        errorMessage = null;
+        resultMessage = null;
+        if (user is null)
+        {
+            errorMessage = "Inte inloggad";
+            return;
+        }
+        if (Input.DisplayName != user.DisplayName)
+        {
+
+            user.DisplayName = Input.DisplayName;
+
+            var result = await UserManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                errorMessage = "Lyckades inte uppdatera namnet";
+                return;
+            }
+            resultMessage = "Lyckades uppdatera namnet";
+        }
+        
+
+    }
+
+
+    private sealed class InputModel
+    {
+        [Required]
+        [StringLength(20, MinimumLength = 3, ErrorMessage = "Display name must be between 3 and 20 characters")]
+        [Display(Name = "Display name")]
+        public string DisplayName { get; set; } = "";
+
+
+    }
+}
