@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Snackis.Application.ApiDto;
 using Snackis.Application.DTO;
 using Snackis.Application.Interfaces;
@@ -12,9 +13,11 @@ namespace Snackis.Application.Services
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
-        public UserService(IUserRepository userRepository)
+        private readonly IWebHostEnvironment _env;
+        public UserService(IUserRepository userRepository, IWebHostEnvironment env)
         {
             _userRepository = userRepository;
+            _env = env;
         }
         public string? CheckFile(IFormFile file)
         {
@@ -60,10 +63,10 @@ namespace Snackis.Application.Services
         {
             var fileName = Guid.NewGuid() + Path.GetExtension(file.FileName);
 
-            var path = Path.Combine(
-                Directory.GetCurrentDirectory(),
-                "wwwroot/avatars",
-                fileName);
+            var uploadFolder = Path.Combine(_env.WebRootPath, "avatars");
+            Directory.CreateDirectory(uploadFolder);
+
+            var path = Path.Combine(uploadFolder, fileName);
 
             using (var stream = new FileStream(path, FileMode.Create))
             {
@@ -82,9 +85,8 @@ namespace Snackis.Application.Services
             if (!string.IsNullOrEmpty(oldAvatarUrl))
             {
                 var oldPath = Path.Combine(
-                    Directory.GetCurrentDirectory(),
-                    "wwwroot",
-                    oldAvatarUrl.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString())
+                    _env.WebRootPath,
+                    oldAvatarUrl.TrimStart('/')
                 );
 
                 if (File.Exists(oldPath))
